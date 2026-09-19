@@ -1,0 +1,5 @@
+/target
+
+# личный журнал — создаётся приложением при первом сохранении
+/data/finisher-data.yaml
+/data/finisher-data.tmp

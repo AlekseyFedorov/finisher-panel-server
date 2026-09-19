@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Финишер — панель дня</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Caveat:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ffffff;
+    --ink:#3a3a38;
+    --ink-soft:#6f6f6a;
+    --ink-faint:#9a9a94;
+    --accent:#b8863b;
+    --accent-soft:#c9a25c;
+    --line:#d7d5cf;
+    --line-dot:#c7c5bf;
+    --box:#b9b7b0;
+    --shadow:rgba(60,55,45,.16);
+    --gray-fill:#8f8e88;
+    --dark:#4c4a45;
+    --font-body:'Manrope',system-ui,sans-serif;
+    --font-hand:'Caveat',cursive;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--font-body);
+    background:radial-gradient(circle at 30% 10%, #efece5, #e4e0d7 60%, #d8d3c8);
+    color:var(--ink);
+    padding:7px 8px;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ── шапка управления (кнопки, статус сохранения) ── */
+  .ctrl-head{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px;
+  }
+  .ctrl-btns{
+    display:flex;align-items:center;gap:5px;flex:0 0 auto;margin-top:-2px;
+  }
+  .save-status{font-size:9.5px;color:var(--ink-faint);font-style:italic;transition:opacity .4s}
+  .btn{
+    font-family:var(--font-body);font-size:9px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--ink-soft);background:#fdfdfc;border:1px solid var(--line);
+    border-radius:12px;padding:2px 8px;cursor:pointer;transition:.18s;line-height:1.3;
+  }
+  .btn:hover{color:var(--accent);border-color:var(--accent-soft)}
+
+  /* ── сетка панели: 3 страницы макета ── */
+  .panel{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;   /* стр.7 / стр.32 / стр.33 */
+    gap:7px;
+    height:calc(100vh - 14px);
+  }
+  .col{
+    background:var(--paper);
+    border-radius:6px;
+    box-shadow:0 10px 30px var(--shadow), 0 2px 0 #cfccc4;
+    padding:24px 24px 20px;
+    overflow:auto;
+    display:flex;flex-direction:column;
+  }
+  .col::-webkit-scrollbar{width:6px}
+  .col::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+
+  /* ── типографика ── */
+  .h-section{
+    font-weight:600;color:var(--accent);
+    letter-spacing:.11em;text-transform:uppercase;
+    font-size:14px;margin-bottom:3px;flex:0 0 auto;
+  }
+  .h-section.big{font-size:17px;letter-spacing:.09em}
+  .subtle{color:var(--ink-soft);font-size:11.5px;line-height:1.45;font-weight:300;margin-bottom:10px}
+  .subtle.tight{margin-bottom:6px}
+  .block{margin-bottom:18px;flex:0 0 auto}
+  .block.grow{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+
+  /* ── редактируемые поля ── */
+  [data-ed]{
+    outline:none;border-bottom:1px dotted var(--line-dot);
+    min-height:16px;font-size:13px;font-weight:300;line-height:1.5;
+    padding:1px 2px;transition:border-color .15s, background .15s;
+  }
+  [data-ed]:hover{border-bottom-color:var(--ink-soft)}
+  [data-ed]:focus{border-bottom-color:var(--accent);background:#fbf8f1}
+  [data-ed]:empty::before{
+    content:attr(data-ph);color:var(--ink-faint);font-style:italic;pointer-events:none;
+  }
+  .ed-mult{min-height:40px}
+
+  /* строки задач */
+  .checkrow{display:flex;align-items:flex-end;gap:10px;margin:9px 0}
+  .checkrow [data-ed]{flex:1}
+  .cbox{
+    flex:0 0 auto;width:16px;height:16px;border:1.4px dashed var(--box);
+    border-radius:3px;margin-bottom:2px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;color:#fff;user-select:none;transition:.15s;
+  }
+  .cbox:hover{border-color:var(--accent)}
+  .cbox.on{background:var(--dark);border:1.4px solid var(--dark)}
+  .cbox.on::after{content:"✓"}
+
+  .numrow{display:flex;align-items:flex-end;gap:8px;margin:9px 0}
+  .numrow .n{font-weight:600;font-size:12px;min-width:14px;color:var(--ink)}
+  .numrow [data-ed]{flex:1}
+  .numrow .dl{
+    flex:0 0 74px;font-size:11px;color:var(--ink-soft);font-style:italic;
+  }
+
+  .align-note{
+    display:flex;justify-content:flex-end;align-items:center;gap:7px;
+    font-size:10.5px;color:var(--ink-faint);font-weight:300;margin-top:-3px;
+  }
+  .align-note .mini{width:12px;height:12px;border:1.3px dashed var(--box);border-radius:2px;cursor:pointer}
+  .align-note .mini.on{background:var(--dark);border-color:var(--dark)}
+
+  .action-head{display:flex;justify-content:space-between;align-items:baseline}
+  .action-head .dl{font-size:10.5px;font-style:italic;color:var(--ink-soft)}
+
+  /* прогресс */
+  .prog-scale{
+    position:relative;display:flex;border:1px solid var(--line);
+    border-radius:3px;overflow:hidden;margin-top:6px;cursor:pointer;
+  }
+  .prog-scale div{
+    flex:1;text-align:right;font-size:8px;color:var(--ink-faint);
+    padding:3px 4px;border-right:1px dashed var(--line);
+    position:relative;z-index:2;transition:background .2s;line-height:1.1;
+  }
+  .prog-scale div:last-child{border-right:none}
+  .prog-scale div.filled{background:var(--gray-fill);color:#fff}
+  .prog-legend{display:flex;gap:18px;margin-top:9px;font-size:10.5px;color:var(--ink-soft);font-style:italic}
+  .prog-legend span{display:inline-flex;align-items:center;gap:6px}
+  .prog-legend .sw{width:13px;height:13px;background:var(--gray-fill);border-radius:2px;font-style:normal}
+  .prog-legend .sw.empty{background:none;border:1.3px dashed var(--box)}
+
+  .by-row{display:flex;align-items:flex-end;gap:8px;margin-top:4px}
+  .by-row [data-ed]{flex:1}
+  .by-row .by{font-size:11.5px;color:var(--ink-soft);font-style:italic}
+  .by-row [data-ed].small{flex:0 0 100px}
+
+  /* дневная шапка */
+  .day-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+  .day-head .h-section.big{margin:0}
+  .day-head [data-ed]{flex:0 0 110px;font-size:13px}
+  .day-head .slash{color:var(--ink-faint);font-size:12px}
+
+  /* цитата внизу страницы */
+  .quote-foot{
+    flex:0 0 auto;text-align:center;margin-top:auto;padding-top:14px;
+    font-size:12px;color:var(--ink-soft);
+  }
+  .quote-foot .q{font-style:italic;font-weight:300}
+
+  /* ── страница 33: тайм-бокс дневных задач ── */
+  .timebox{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+  .timebox .rows{display:flex;flex-direction:column}
+  .timebox .trow{display:flex;align-items:flex-end;gap:9px;margin:9px 0}
+  .timebox .hr{min-width:26px;text-align:right;font-size:11.5px;color:var(--ink-soft);font-weight:400}
+  .timebox [data-ed]{flex:1;font-size:13px}
+
+  /* ── закладки-органайзеры (панель 1) ── */
+  .tab-col{padding:0;flex-direction:row;overflow:hidden}
+  .page-tabs{
+    flex:0 0 auto;display:flex;flex-direction:column;gap:8px;
+    padding:24px 10px 20px 16px;border-right:1px solid var(--line);
+  }
+  .tab-bm{
+    writing-mode:vertical-rl;text-orientation:mixed;
+    font-family:var(--font-body);font-size:7px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--ink-soft);background:#fdfdfc;border:1px solid var(--line);
+    border-radius:14px;padding:8px 4px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    min-height:70px;line-height:1.3;
+    transition:.18s;
+  }
+  .tab-bm:hover{color:var(--accent);border-color:var(--accent-soft)}
+  .tab-bm.active{color:#fff;background:var(--accent);border-color:var(--accent)}
+  .tabbed-content{flex:1 1 auto;min-width:0;overflow:auto;padding:24px 24px 20px 16px;display:flex;flex-direction:column}
+  .tabbed-content::-webkit-scrollbar{width:6px}
+  .tabbed-content::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .tab-view{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+  .tab-view[hidden]{display:none}
+  .dump-lines{display:flex;flex-direction:column}
+  .dump-line{display:flex;align-items:flex-end;gap:8px;margin:9px 0}
+  .dump-line .dump-num{flex:0 0 22px;text-align:right;padding-right:5px;font-size:12.85px;color:var(--ink-faint)}
+  .dump-line [data-ed]{flex:1}
+
+  /* ── трекер привычек (закладка) ── */
+  .habit-table{width:100%;border-collapse:collapse;margin-top:6px}
+  .habit-table th{
+    font-size:10px;color:var(--ink-soft);font-weight:500;padding:4px 2px;
+    text-align:center;border-bottom:1px dotted var(--line-dot);
+  }
+  .habit-table th.hname{text-align:left;width:20%}
+  .habit-table td{border-bottom:1px dotted var(--line-dot);padding:7px 2px;vertical-align:middle}
+  .habit-table td [data-ed]{font-size:12px;min-height:14px;display:block}
+  .hboxes{display:flex;gap:2.5px;justify-content:center}
+  .hboxes i{
+    width:10px;height:10px;border:1px dashed var(--box);border-radius:2px;
+    flex:0 0 auto;cursor:pointer;transition:.12s;
+  }
+  .hboxes i:hover{border-color:var(--accent)}
+  .hboxes i.on{background:var(--dark);border:1px solid var(--dark)}
+
+  /* масштаб под 2K (2560×1440) */
+  @media (min-width:2200px){
+    body{zoom:1.33}
+  }
+</style>
+</head>
+<body>
+
+<div class="panel">
+
+  <!-- ═══ стр. 7 макета: Цель-результат + закладки-органайзеры ═══ -->
+  <section class="col tab-col">
+    <nav class="page-tabs">
+      <button class="tab-bm" data-tab="export">Разгрузка</button>
+      <button class="tab-bm" data-tab="day">День недели</button>
+      <button class="tab-bm" data-tab="tasks">Дневные задачи</button>
+      <button class="tab-bm" data-tab="habits">Трекер привычек</button>
+    </nav>
+
+    <div class="tabbed-content">
+      <div class="tab-view" data-view="goal">
+        <div class="block">
+          <div class="h-section big">Цель-результат</div>
+          <p class="subtle tight">Какую SMART-цель вы достигнете в ближайшие 90 дней?</p>
+          <div data-ed="goal.text" data-ph="Сформулируйте цель…"></div>
+          <div class="by-row">
+            <span class="by">к сроку</span>
+            <span class="small" data-ed="goal.deadline" data-ph="дата"></span>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="action-head">
+            <div class="h-section">Шаги действий</div>
+            <span class="dl">Дедлайн</span>
+          </div>
+          <p class="subtle tight">Разбейте цель на шаги действий.</p>
+          <div class="numrow"><span class="n">1.</span><span data-ed="steps.0.text"></span><span class="dl" data-ed="steps.0.deadline" data-ph="—"></span></div>
+          <div class="numrow"><span class="n">2.</span><span data-ed="steps.1.text"></span><span class="dl" data-ed="steps.1.deadline" data-ph="—"></span></div>
+          <div class="numrow"><span class="n">3.</span><span data-ed="steps.2.text"></span><span class="dl" data-ed="steps.2.deadline" data-ph="—"></span></div>
+          <div class="numrow"><span class="n">4.</span><span data-ed="steps.3.text"></span><span class="dl" data-ed="steps.3.deadline" data-ph="—"></span></div>
+          <div class="numrow"><span class="n">5.</span><span data-ed="steps.4.text"></span><span class="dl" data-ed="steps.4.deadline" data-ph="—"></span></div>
+        </div>
+
+        <div class="block">
+          <div class="h-section">Оптимизация</div>
+          <p class="subtle tight">Если цель и шаги не соответствуют условиям — вернитесь и доработайте их.</p>
+          <div class="checkrow"><span class="cbox" data-check="optimize.0"></span><span style="font-size:12px;color:var(--ink-soft);font-weight:300">Формулировка цели конкретна и измерима</span></div>
+          <div class="checkrow"><span class="cbox" data-check="optimize.1"></span><span style="font-size:12px;color:var(--ink-soft);font-weight:300">Каждый шаг напрямую влияет на цель</span></div>
+          <div class="checkrow"><span class="cbox" data-check="optimize.2"></span><span style="font-size:12px;color:var(--ink-soft);font-weight:300">Каждый шаг выполним и в зоне вашего контроля</span></div>
+        </div>
+
+        <div class="block grow">
+          <div class="h-section">Ключевая мотивация</div>
+          <p class="subtle tight">Почему для вас важно достичь этой цели?</p>
+          <div class="ed-mult" data-ed="motivation" data-ph="Ваша причина…" style="flex:1"></div>
+        </div>
+
+        <div class="block" style="margin-bottom:0">
+          <div class="h-section">Прогресс</div>
+          <p class="subtle tight">Нажмите на шкалу, чтобы отметить прогресс.</p>
+          <div class="prog-scale" id="progScale">
+            <div data-prog="20">20%</div><div data-prog="40">40%</div><div data-prog="60">60%</div><div data-prog="80">80%</div><div data-prog="100">100%</div>
+          </div>
+          <div class="prog-legend">
+            <span><i class="sw"></i>Сделано.</span>
+            <span><i class="sw empty"></i>Осталось</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-view" data-view="export" hidden>
+        <div class="h-section big">Разгрузка</div>
+        <p class="subtle tight">Выгрузи все задачи из головы.</p>
+        <div class="dump-lines" id="dumpLines"></div>
+      </div>
+
+      <div class="tab-view" data-view="day" hidden>
+        <div class="day-head">
+          <div class="h-section big" data-ed="dayLabel" data-ph="День недели" style="border-bottom:none;min-width:120px"></div>
+          <span data-ed="dayDate" data-ph="дата"></span>
+          <span class="slash">/</span>
+        </div>
+
+        <div class="block">
+          <div class="action-head"><div class="h-section">Главная задача</div><span class="dl">Самая важная задача сегодня</span></div>
+          <div class="checkrow"><span class="cbox" data-check="primary.done"></span><span data-ed="primary.text" data-ph="Задача дня…"></span></div>
+          <div class="align-note">Связана с активной целью<span class="mini" data-check="primary.aligned"></span></div>
+        </div>
+
+        <div class="block">
+          <div class="action-head"><div class="h-section">Второстепенные задачи</div><span class="dl">Только после завершения главной задачи</span></div>
+          <div class="checkrow"><span class="cbox" data-check="secondary.0.done"></span><span data-ed="secondary.0.text"></span></div>
+          <div class="checkrow"><span class="cbox" data-check="secondary.1.done"></span><span data-ed="secondary.1.text"></span></div>
+        </div>
+
+        <div class="block">
+          <div class="h-section">Дополнительные задачи</div>
+          <div class="checkrow"><span class="cbox" data-check="additional.0.done"></span><span data-ed="additional.0.text"></span></div>
+          <div class="checkrow"><span class="cbox" data-check="additional.1.done"></span><span data-ed="additional.1.text"></span></div>
+          <div class="checkrow"><span class="cbox" data-check="additional.2.done"></span><span data-ed="additional.2.text"></span></div>
+          <div class="checkrow"><span class="cbox" data-check="additional.3.done"></span><span data-ed="additional.3.text"></span></div>
+          <div class="checkrow"><span class="cbox" data-check="additional.4.done"></span><span data-ed="additional.4.text"></span></div>
+          <div class="checkrow"><span class="cbox" data-check="additional.5.done"></span><span data-ed="additional.5.text"></span></div>
+        </div>
+      </div>
+
+      <div class="tab-view" data-view="tasks" hidden>
+        <div class="h-section big">Дневные задачи</div>
+        <div class="timebox">
+          <div class="rows" id="timelineRowsTab"></div>
+        </div>
+      </div>
+
+      <div class="tab-view" data-view="habits" hidden>
+        <div class="h-section big">Трекер привычек</div>
+        <p class="subtle tight">Запишите привычки, которые хотите закрепить, и отмечайте каждый день выполнения.</p>
+        <table class="habit-table">
+          <thead>
+            <tr>
+              <th class="hname"></th>
+              <th>Янв</th><th>Фев</th><th>Мар</th><th>Апр</th><th>Май</th><th>Июн</th>
+              <th>Июл</th><th>Авг</th><th>Сен</th><th>Окт</th><th>Ноя</th><th>Дек</th>
+            </tr>
+          </thead>
+          <tbody id="habitBody"></tbody>
+        </table>
+
+        <div class="block" style="margin-top:20px;margin-bottom:0">
+          <div class="h-section">Правило месяца</div>
+          <p class="subtle tight">Не пропускайте два дня подряд: один пропуск — случайность, два — начало новой привычки.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ стр. 32 макета: Дневной обзор — задачи ═══ -->
+  <section class="col">
+    <div class="block">
+      <div class="ctrl-head">
+        <div class="h-section big">Главная задача</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+          <div class="day-head" style="margin-bottom:0">
+            <span data-ed="dayLabel" data-ph="День недели" style="border-bottom:1px dotted var(--line-dot);min-width:110px"></span>
+            <span data-ed="dayDate" data-ph="дата"></span>
+            <span class="slash">/</span>
+          </div>
+          <span class="save-status" id="saveStatus"></span>
+        </div>
+      </div>
+      <p class="subtle tight">Самая важная задача сегодня</p>
+      <div class="checkrow"><span class="cbox" data-check="primary.done"></span><span data-ed="primary.text" data-ph="Задача дня…"></span></div>
+      <div class="align-note">Связана с активной целью<span class="mini" data-check="primary.aligned"></span></div>
+    </div>
+
+    <div class="block">
+      <div class="action-head"><div class="h-section">Второстепенные задачи</div><span class="dl">Только после завершения главной задачи</span></div>
+      <div class="checkrow"><span class="cbox" data-check="secondary.0.done"></span><span data-ed="secondary.0.text"></span></div>
+      <div class="checkrow"><span class="cbox" data-check="secondary.1.done"></span><span data-ed="secondary.1.text"></span></div>
+    </div>
+
+    <div class="block">
+      <div class="h-section">Дополнительные задачи</div>
+      <div class="checkrow"><span class="cbox" data-check="additional.0.done"></span><span data-ed="additional.0.text"></span></div>
+      <div class="checkrow"><span class="cbox" data-check="additional.1.done"></span><span data-ed="additional.1.text"></span></div>
+      <div class="checkrow"><span class="cbox" data-check="additional.2.done"></span><span data-ed="additional.2.text"></span></div>
+      <div class="checkrow"><span class="cbox" data-check="additional.3.done"></span><span data-ed="additional.3.text"></span></div>
+      <div class="checkrow"><span class="cbox" data-check="additional.4.done"></span><span data-ed="additional.4.text"></span></div>
+      <div class="checkrow"><span class="cbox" data-check="additional.5.done"></span><span data-ed="additional.5.text"></span></div>
+    </div>
+
+    <div class="block">
+      <div class="action-head"><div class="h-section">Главное событие дня</div><span class="dl">Что сегодня самое главное</span></div>
+      <div class="checkrow"><span class="cbox" data-check="mainEvent.done"></span><span data-ed="mainEvent.text" data-ph="Событие дня…"></span></div>
+    </div>
+
+    <div class="quote-foot">
+      <span class="q">«Тот, кто никогда не ошибался, никогда не пробовал ничего нового».</span><br>
+      — Альберт Эйнштейн
+    </div>
+  </section>
+
+  <!-- ═══ стр. 33 макета: тайм-бокс дневных задач ═══ -->
+  <section class="col">
+    <div class="h-section big">Дневные задачи</div>
+
+    <div class="timebox">
+      <div class="rows" id="timelineRows"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+'use strict';
+
+/* ───────────── состояние ───────────── */
+const HOURS = [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+const DUMP_LINES = 30;
+const HABIT_ROWS = 5, HABIT_CELLS = 48; // 12 месяцев × 4 клетки
+
+function defaultState(){
+  return {
+    goal: { text:'', deadline:'' },
+    steps: Array.from({length:5}, () => ({ text:'', deadline:'' })),
+    optimize: [false,false,false],
+    motivation: '',
+    progress: 0,
+    dayLabel: '',
+    dayDate: '',
+    primary: { text:'', done:false, aligned:false },
+    secondary: Array.from({length:2}, () => ({ text:'', done:false })),
+    additional: Array.from({length:6}, () => ({ text:'', done:false })),
+    timeline: HOURS.map(h => ({ h, t:'', done:false })),
+    mainEvent: { text:'', done:false },
+    dump: Array.from({length:DUMP_LINES}, () => ''),
+    habits: Array.from({length:HABIT_ROWS}, () => ({ name:'', cells:'0'.repeat(HABIT_CELLS) }))
+  };
+}
+
+let state = defaultState();
+
+/* ───────────── YAML (подмножество: ключи + JSON-значения) ───────────── */
+function dumpYAML(obj){
+  const lines = [];
+  (function emit(o, ind){
+    const pad = ' '.repeat(ind);
+    for(const [k,v] of Object.entries(o)){
+      if(Array.isArray(v)){
+        lines.push(pad + k + ':');
+        for(const item of v) lines.push(pad + '  - ' + JSON.stringify(item));
+      }else if(v && typeof v === 'object'){
+        lines.push(pad + k + ':');
+        emit(v, ind + 2);
+      }else{
+        lines.push(pad + k + ': ' + JSON.stringify(v));
+      }
+    }
+  })(obj, 0);
+  return lines.join('\n') + '\n';
+}
+
+function parseYAML(text){
+  const lines = text.split('\n');
+  function parseBlock(i, minIndent){
+    let j = i;
+    while(j < lines.length && !lines[j].trim()) j++;
+    if(j >= lines.length) return [null, j];
+    const isList = lines[j].trim().startsWith('- ');
+    const container = isList ? [] : {};
+    while(j < lines.length){
+      const raw = lines[j];
+      if(!raw.trim()){ j++; continue; }
+      const ind = raw.match(/^ */)[0].length;
+      if(ind < minIndent) break;
+      const line = raw.trim();
+      if(isList){
+        if(!line.startsWith('- ')) break;
+        container.push(JSON.parse(line.slice(2)));
+        j++;
+      }else{
+        const ci = line.indexOf(':');
+        if(ci < 0){ j++; continue; }
+        const key = line.slice(0, ci).trim();
+        const rest = line.slice(ci + 1).trim();
+        if(rest === ''){
+          const [val, nj] = parseBlock(j + 1, ind + 1);
+          container[key] = val; j = nj;
+        }else{
+          container[key] = JSON.parse(rest);
+          j++;
+        }
+      }
+    }
+    return [container, j];
+  }
+  return parseBlock(0, 0)[0];
+}
+
+/* ───────────── утилиты ───────────── */
+function getPath(o, p){ return p.split('.').reduce((a,k) => (a == null ? undefined : a[k]), o); }
+function setPath(o, p, v){
+  const ks = p.split('.'); let a = o;
+  for(let i = 0; i < ks.length - 1; i++) a = a[ks[i]];
+  a[ks[ks.length - 1]] = v;
+}
+function deepMerge(base, extra){
+  if(!extra || typeof extra !== 'object') return base;
+  for(const k of Object.keys(extra)){
+    if(base[k] && typeof base[k] === 'object' && !Array.isArray(base[k])
+       && extra[k] && typeof extra[k] === 'object' && !Array.isArray(extra[k])){
+      deepMerge(base[k], extra[k]);
+    }else{
+      base[k] = extra[k];
+    }
+  }
+  return base;
+}
+
+/* ───────────── сохранение / загрузка (сервер) ───────────── */
+let saveTimer = null;
+/* файл данных существует, но не разобрался — сохранять нельзя, иначе затрём его дефолтами */
+let loadFailed = false;
+const LOAD_FAILED_MSG = 'Файл данных не разобран — автосохранение выключено';
+
+function scheduleSave(){
+  if(loadFailed){
+    showStatus(LOAD_FAILED_MSG);
+    return;
+  }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 400);
+}
+function showStatus(text){
+  const el = document.getElementById('saveStatus');
+  el.textContent = text;
+  el.style.opacity = 1;
+  setTimeout(() => el.style.opacity = .45, 1500);
+}
+async function save(){
+  try{
+    const r = await fetch('api/state', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'text/yaml;charset=utf-8' },
+      body: dumpYAML(state)
+    });
+    if(r.ok){
+      showStatus('Сохранено на сервере · ' + new Date().toLocaleTimeString('ru-RU'));
+    }else{
+      showStatus('Ошибка сохранения: HTTP ' + r.status);
+    }
+  }catch(e){
+    showStatus('Сервер недоступен — не сохранено');
+  }
+}
+async function load(){
+  let raw = '';
+  try{
+    const r = await fetch('api/state');
+    if(r.ok) raw = await r.text();
+  }catch(e){
+    console.warn('Сервер недоступен:', e);
+    return;
+  }
+  if(!raw.trim()) return;
+  try{
+    const parsed = parseYAML(raw);
+    if(parsed && typeof parsed === 'object') deepMerge(state, parsed);
+  }catch(e){
+    loadFailed = true;
+    console.warn('Не удалось разобрать сохранённый YAML:', e);
+  }
+  normalizeState();
+}
+
+/* приведение загруженных данных к текущей форме (старые сохранения могли иметь другую длину/тип полей) */
+function normalizeState(){
+  const byHour = {};
+  (Array.isArray(state.timeline) ? state.timeline : []).forEach(item => {
+    if(item && typeof item.h === 'number') byHour[item.h] = item;
+  });
+  state.timeline = HOURS.map(h => {
+    const old = byHour[h];
+    return { h, t: (old && old.t) || '', done: !!(old && old.done) };
+  });
+
+  if(typeof state.mainEvent === 'string'){
+    state.mainEvent = { text: state.mainEvent, done:false };
+  }else if(!state.mainEvent || typeof state.mainEvent !== 'object'){
+    state.mainEvent = { text:'', done:false };
+  }
+
+  if(!Array.isArray(state.dump)) state.dump = [];
+  while(state.dump.length < DUMP_LINES) state.dump.push('');
+
+  if(!Array.isArray(state.habits)) state.habits = [];
+  while(state.habits.length < HABIT_ROWS) state.habits.push({ name:'', cells:'0'.repeat(HABIT_CELLS) });
+  state.habits = state.habits.slice(0, HABIT_ROWS).map(h => {
+    const name = (h && h.name) || '';
+    let cells = (h && h.cells) || '';
+    if(cells.length < HABIT_CELLS) cells = cells + '0'.repeat(HABIT_CELLS - cells.length);
+    else if(cells.length > HABIT_CELLS) cells = cells.slice(0, HABIT_CELLS);
+    return { name, cells };
+  });
+}
+
+/* ───────────── рендер ───────────── */
+function renderAll(){
+  document.querySelectorAll('[data-ed]').forEach(el => {
+    const v = getPath(state, el.dataset.ed);
+    if(el.innerText !== String(v ?? '')) el.innerText = String(v ?? '');
+  });
+  document.querySelectorAll('[data-check]').forEach(el => {
+    el.classList.toggle('on', !!getPath(state, el.dataset.check));
+  });
+  renderProgress();
+  syncDumpNumbers();
+  renderHabits();
+}
+function renderProgress(){
+  document.querySelectorAll('#progScale div').forEach(d => {
+    d.classList.toggle('filled', Number(d.dataset.prog) <= state.progress);
+  });
+}
+
+/* ───────────── построение DOM: временная шкала ───────────── */
+function buildTimeline(containerId){
+  const box = document.getElementById(containerId);
+  box.innerHTML = '';
+  HOURS.forEach((h, i) => {
+    const row = document.createElement('div');
+    row.className = 'trow';
+    row.innerHTML = `<span class="cbox" data-check="timeline.${i}.done"></span><span class="hr">${h}</span><span data-ed="timeline.${i}.t"></span>`;
+    box.appendChild(row);
+  });
+}
+
+/* ───────────── построение DOM: страница «Разгрузка» ───────────── */
+function buildDump(){
+  if(!Array.isArray(state.dump)) state.dump = [];
+  while(state.dump.length < DUMP_LINES) state.dump.push('');
+  const box = document.getElementById('dumpLines');
+  box.innerHTML = '';
+  for(let i = 0; i < DUMP_LINES; i++){
+    const row = document.createElement('div');
+    row.className = 'dump-line';
+    row.innerHTML = `<span class="dump-num" id="dumpNum${i}"></span><span data-ed="dump.${i}" data-ph="…"></span>`;
+    box.appendChild(row);
+  }
+  syncDumpNumbers();
+}
+function syncDumpNumbers(){
+  for(let i = 0; i < DUMP_LINES; i++){
+    const numEl = document.getElementById('dumpNum' + i);
+    if(!numEl) continue;
+    const v = state.dump[i];
+    numEl.textContent = (v && v.trim()) ? String(i + 1) : '';
+  }
+}
+
+/* ───────────── построение DOM: трекер привычек ───────────── */
+function buildHabits(){
+  const tbody = document.getElementById('habitBody');
+  tbody.innerHTML = '';
+  state.habits.forEach((habit, hi) => {
+    const tr = document.createElement('tr');
+    const tdName = document.createElement('td');
+    tdName.innerHTML = `<span data-ed="habits.${hi}.name" data-ph="Привычка…"></span>`;
+    tr.appendChild(tdName);
+    for(let m = 0; m < 12; m++){
+      const td = document.createElement('td');
+      const box = document.createElement('div');
+      box.className = 'hboxes';
+      for(let c = 0; c < 4; c++){
+        const idx = m * 4 + c;
+        const cell = document.createElement('i');
+        cell.dataset.hcell = hi + '.' + idx;
+        box.appendChild(cell);
+      }
+      td.appendChild(box);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+}
+function renderHabits(){
+  document.querySelectorAll('[data-hcell]').forEach(el => {
+    const [hi, idx] = el.dataset.hcell.split('.').map(Number);
+    const habit = state.habits[hi];
+    el.classList.toggle('on', !!habit && habit.cells[idx] === '1');
+  });
+}
+
+/* ───────────── закладки-органайзеры (панель 1) ───────────── */
+document.querySelectorAll('.tab-bm').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const wasActive = btn.classList.contains('active');
+    document.querySelectorAll('.tab-bm').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-view').forEach(v => v.hidden = true);
+    if(wasActive){
+      document.querySelector('.tab-view[data-view="goal"]').hidden = false;
+    }else{
+      btn.classList.add('active');
+      document.querySelector(`.tab-view[data-view="${btn.dataset.tab}"]`).hidden = false;
+      renderAll();
+    }
+  });
+});
+
+/* ───────────── синхронизация дублирующихся полей (панель 1 + оригинал) ───────────── */
+function syncEd(path, exceptEl){
+  document.querySelectorAll(`[data-ed="${path}"]`).forEach(el => {
+    if(el === exceptEl) return;
+    const v = getPath(state, path);
+    if(el.innerText !== String(v ?? '')) el.innerText = String(v ?? '');
+  });
+}
+function syncCheck(path){
+  const on = !!getPath(state, path);
+  document.querySelectorAll(`[data-check="${path}"]`).forEach(el => {
+    el.classList.toggle('on', on);
+  });
+}
+
+/* ───────────── события ───────────── */
+document.addEventListener('input', e => {
+  const el = e.target.closest('[data-ed]');
+  if(!el) return;
+  let v = el.innerText.replace(/\n$/, '');
+  setPath(state, el.dataset.ed, v);
+  syncEd(el.dataset.ed, el);
+  if(el.dataset.ed.startsWith('dump.')){
+    syncDumpNumbers();
+  }
+  scheduleSave();
+});
+
+document.addEventListener('keydown', e => {
+  const el = e.target.closest && e.target.closest('[data-ed]');
+  if(el && e.key === 'Enter' && !el.hasAttribute('data-multiline') && !el.classList.contains('ed-mult')){
+    e.preventDefault();
+    el.blur();
+  }
+});
+
+document.addEventListener('click', e => {
+  const chk = e.target.closest('[data-check]');
+  if(chk){
+    const p = chk.dataset.check;
+    setPath(state, p, !getPath(state, p));
+    syncCheck(p);
+    scheduleSave();
+    return;
+  }
+  const prog = e.target.closest('#progScale div');
+  if(prog){
+    const v = Number(prog.dataset.prog);
+    state.progress = (state.progress === v) ? 0 : v; // повторный клик сбрасывает
+    renderProgress();
+    scheduleSave();
+    return;
+  }
+  const cell = e.target.closest('[data-hcell]');
+  if(cell){
+    const [hi, idx] = cell.dataset.hcell.split('.').map(Number);
+    const h = state.habits[hi];
+    h.cells = h.cells.slice(0, idx) + (h.cells[idx] === '1' ? '0' : '1') + h.cells.slice(idx + 1);
+    renderHabits();
+    scheduleSave();
+  }
+});
+
+/* редактируемые области */
+function makeEditable(){
+  document.querySelectorAll('[data-ed]').forEach(el => {
+    el.setAttribute('contenteditable', 'true');
+    el.setAttribute('spellcheck', 'false');
+  });
+}
+
+/* ───────────── старт ───────────── */
+(async () => {
+  await load();
+  buildTimeline('timelineRows');
+  buildTimeline('timelineRowsTab');
+  buildDump();
+  buildHabits();
+  makeEditable();
+  renderAll();
+  if(loadFailed) showStatus(LOAD_FAILED_MSG);
+})();
+</script>
+
+</body>
+</html>
